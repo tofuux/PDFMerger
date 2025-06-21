@@ -1,47 +1,74 @@
 import os
 from pypdf import PdfReader, PdfWriter
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
+from tkinter import filedialog, messagebox
 
-def merge_pdfs(file_name, folder_path, output_path):
+def merge_pdfs_gui(file_paths, output_path):
     writer = PdfWriter()
-
-    for name in file_name:
-        pdf_path = os.path.join(folder_path, name.strip())
+    for pdf_path in file_paths:
         try:
             reader = PdfReader(pdf_path)
             for page in reader.pages:
                 writer.add_page(page)
-        except FileNotFoundError:
-            print(f"❌ File not found: {pdf_path}")
         except Exception as e:
-            print(f"⚠️ Error reading {pdf_path}: {e}")
+            messagebox.showerror("Error", f"Could not read {pdf_path}:\n{e}")
+            return
 
     if writer.pages:
         with open(output_path, "wb") as out_file:
             writer.write(out_file)
-        print(f"✅ PDFs merged successfully into {output_path}")
+        messagebox.showinfo("Success", f"PDFs merged successfully!\nSaved to: {output_path}")
     else:
-        print("❗ No valid PDF files were merged.")
+        messagebox.showwarning("Warning", "No valid PDF files were merged.")
 
-# === MAIN EXECUTION ===
-if __name__ == "__main__":
-    # Ask for input files
-    input_files = input("Enter PDF filenames (comma-separated, e.g., one.pdf, two.pdf):\n> ")
-    file_list = input_files.split(",")
+def browse_files():
+    file_paths = filedialog.askopenfilenames(title="Select PDF files", filetypes=[("PDF files", "*.pdf")])
+    if file_paths:
+        files_entry.delete(0, 'end')
+        files_entry.insert(0, ";".join(file_paths))
 
-    # Ask for folder containing the PDFs
-    folder_path = input("Enter the folder path where the PDFs are located:\n> ").strip()
+def choose_save_folder():
+    folder = filedialog.askdirectory(title="Choose output folder")
+    if folder:
+        output_folder_entry.delete(0, 'end')
+        output_folder_entry.insert(0, folder)
 
-    # Ask for output file name
-    output_file_name = input("Enter the name for the merged PDF (e.g., merged.pdf):\n> ").strip()
+def start_merge():
+    files = files_entry.get().split(";")
+    output_name = output_name_entry.get().strip()
+    output_folder = output_folder_entry.get().strip()
 
-    # Ask for output folder path
-    output_folder = input("Enter the folder path where you want to save the merged PDF:\n> ").strip()
+    if not files or not output_name or not output_folder:
+        messagebox.showerror("Missing Info", "Please provide all required inputs.")
+        return
 
-    # Ensure .pdf extension
-    if not output_file_name.lower().endswith(".pdf"):
-        output_file_name += ".pdf"
+    if not output_name.lower().endswith(".pdf"):
+        output_name += ".pdf"
 
-    output_path = os.path.join(output_folder, output_file_name)
+    output_path = os.path.join(output_folder, output_name)
+    merge_pdfs_gui(files, output_path)
 
-    merge_pdfs(file_list, folder_path, output_path)
- 
+# === GUI SETUP with ttkbootstrap ===
+root = tb.Window(themename="darkly")
+root.title("PDF Fusion Wizard")
+root.geometry("600x360")
+root.resizable(False, False)
+
+tb.Label(root, text="Upload PDF Files", font=("Segoe UI", 11)).pack(pady=(20, 5))
+files_entry = tb.Entry(root, width=65, bootstyle="dark")
+files_entry.pack(pady=2)
+tb.Button(root, text="Choose Files", command=browse_files, bootstyle="danger-outline", width=20).pack(pady=5)
+
+tb.Label(root, text="Output File Name", font=("Segoe UI", 11)).pack(pady=(15, 2))
+output_name_entry = tb.Entry(root, width=40, bootstyle="dark")
+output_name_entry.pack()
+
+tb.Label(root, text="Output Folder", font=("Segoe UI", 11)).pack(pady=(15, 2))
+output_folder_entry = tb.Entry(root, width=65, bootstyle="dark")
+output_folder_entry.pack(pady=2)
+tb.Button(root, text="Choose Folder", command=choose_save_folder, bootstyle="danger-outline", width=20).pack(pady=5)
+
+tb.Button(root, text="Merge PDFs", command=start_merge, bootstyle="danger", width=20).pack(pady=20)
+
+root.mainloop()
